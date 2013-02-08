@@ -54,6 +54,16 @@ class PaneCommand(sublime_plugin.WindowCommand):
 		cols = layout["cols"]	
 		return rows, cols, cells
 	
+	def duplicated_views(self, original_group, duplicating_group):
+		original_views = self.window.views_in_group(original_group)
+		original_buffers = [v.buffer_id() for v in original_views]
+		potential_dupe_views = self.window.views_in_group(duplicating_group)
+		dupe_views = []
+		for pd in potential_dupe_views:
+			if pd.buffer_id() in original_buffers:
+				dupe_views.append(pd)
+		return dupe_views
+	
 	def travel_to_pane(self, direction):
 		window = self.window
 		rows, cols, cells = self.get_layout()
@@ -133,6 +143,15 @@ class PaneCommand(sublime_plugin.WindowCommand):
 			cell_to_remove = adjacent_cells[0]
 		
 		if cell_to_remove:
+			active_view = window.active_view()
+			group_to_remove = cells.index(cell_to_remove)
+			dupe_views = self.duplicated_views(current_group, group_to_remove)
+			for d in dupe_views:
+				window.focus_view(d)
+				window.run_command('close')
+			if active_view:
+				window.focus_view(active_view)
+			
 			cells.remove(cell_to_remove)
 			if direction == "up":
 				rows.pop(cell_to_remove[YMAX])
@@ -158,6 +177,7 @@ class PaneCommand(sublime_plugin.WindowCommand):
 				for cell in adjacent_cells:
 					cells[cells.index(cell)][XMIN] = cell_to_remove[XMIN]
 				cells = pull_left_cells_after(cells, cell_to_remove[XMAX])
+			
 			layout = {"cols": cols, "rows": rows, "cells": cells}
 			print(layout)
 			window.set_layout(layout)
